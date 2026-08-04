@@ -1,0 +1,121 @@
+.TH WINCD 1 "August 2026" "wsl-cd 1.0.0" "User Commands"
+.SH NAME
+wincd \- convert Windows (PowerShell) directory addresses to WSL cd commands
+.SH SYNOPSIS
+.B wincd
+.RI [ \-p | \-w | \-c ]
+.RI [ PATH ]
+.br
+.B wincd
+.B \-h
+.br
+.B wincd
+.B \-\-version
+.SH DESCRIPTION
+.B wincd
+converts a Windows path such as
+.B C:\eUsers\ehamzah\eDocuments
+into a WSL path such as
+.BR /mnt/c/Users/hamzah/Documents ,
+and prints it as a
+.B cd
+command you can paste straight into a WSL terminal.
+.PP
+When called without
+.IR PATH ,
+.B wincd
+reads the current Windows clipboard
+(via
+.BR powershell.exe\ Get-Clipboard )
+and converts that.
+.PP
+Windows paths may use backslashes or forward slashes and may be wrapped in
+single or double quotes.  Paths that are already in WSL form are passed through
+unchanged.  UNC paths such as
+.B \\\\server\eshare
+are rendered as
+.BR //server/share .
+.PP
+The converter uses
+.BR wslpath (1)
+when available and falls back to a built-in converter otherwise.
+.SH OPTIONS
+.TP
+.B \-p
+Print just the converted path, without the
+.B cd
+prefix.
+.TP
+.B \-w
+Reverse direction: convert a WSL path to a Windows path.
+.TP
+.B \-c
+Convert and copy the resulting
+.B cd
+command to the Windows clipboard.
+.TP
+.B \-h, \-\-help
+Show usage information and exit.
+.TP
+.B \-\-version
+Print the version number and exit.
+.SH EXAMPLES
+.PP
+.TP
+.B wincd 'C:\eUsers\ehamzah\eDocuments'
+cd "/mnt/c/Users/hamzah/Documents"
+.TP
+.B wincd
+Convert whatever is currently on the Windows clipboard.
+.TP
+.B wincd -p 'D:/work/Project X'
+/mnt/d/work/Project X
+.TP
+.B wincd -w /home/hamzah
+C:\eUsers\ehamzah  (or \\\\wsl.localhost\\e... on some setups)
+.TP
+.B cd "$(wincd -p)"
+Jump to the converted directory in the current shell.
+.SH SHELL INTEGRATION
+The installer adds a
+.B wincd
+function to
+.B ~/.bash_aliases
+which changes the current directory:
+.RS
+.PP
+wincd 'C:\eUsers\ehamzah\eDocuments'   \fI# jumps into /mnt/c/Users/hamzah/Documents\fP
+.br
+wincd                                  \fI# jumps to the clipboard path\fP
+.RE
+.PP
+Flags such as
+.B \-p,
+.B \-w
+and
+.B \-c
+are passed through to the
+.B wincd
+script unchanged.
+.SH POWERSHELL
+A PowerShell twin lives in the project at
+.BR powershell/wincd.ps1 .
+It accepts the same ideas: convert, \fI\-Windows\fP for the reverse direction,
+\fI\-Clipboard\fP, \fI\-Copy\fP and \fI\-Raw\fP.
+.SH FILES
+.TP
+.B ~/.local/bin/wincd
+Installed executable (main script).
+.TP
+.B ~/.bash_aliases
+Sourced by the stock Ubuntu .bashrc; holds the cd function.
+.TP
+.B ~/.local/share/icons/...
+Installed icon files (PNG, SVG and a Windows ICO).
+.TP
+.B ~/.local/share/applications/wincd.desktop
+Optional launcher shown in WSLg/desktop app menus.
+.SH SEE ALSO
+.BR wslpath (1)
+.SH AUTHOR
+The wsl-cd project.

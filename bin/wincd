@@ -1,0 +1,139 @@
+#!/usr/bin/env bash
+# wincd — convert Windows (PowerShell) directory addresses to WSL `cd` commands.
+# Part of the wsl-cd project (see README.md at the project root).
+set -euo pipefail
+
+VERSION="1.0.0"
+PROG="$(basename "$0")"
+# Allow overriding the wslpath binary (mainly for testing the fallback).
+WSLPATH="${WSLPATH:-wslpath}"
+
+usage() {
+  cat <<EOF
+$PROG $VERSION — convert Windows (PowerShell) paths to WSL cd commands.
+
+USAGE:
+  $PROG [PATH]            Convert PATH and print a ready-to-paste cd command.
+                          With no PATH, converts the current Windows clipboard.
+  $PROG -p [PATH]         Print just the converted path (no cd prefix).
+  $PROG -w [PATH]         Reverse: convert a WSL path to a Windows path.
+  $PROG -c [PATH]         Convert and copy the cd command to the Windows clipboard.
+  $PROG -h, --help        Show this help.
+  $PROG --version         Show the version.
+
+EXAMPLES:
+  $PROG 'C:\Users\you\Documents'    ->  cd "/mnt/c/Users/you/Documents"
+  $PROG                             ->  convert whatever is on the clipboard
+  $PROG -p 'D:/work/Project X'      ->  /mnt/d/work/Project X
+  $PROG -w /home/you                ->  C:\Users\you (or \\wsl.localhost\...)
+  explorer.exe "\$($PROG -p)"       ->  open the clipboard's folder in Explorer
+
+NOTES:
+  * Windows paths may use \\ or / and may be wrapped in single/double quotes.
+  * Paths already in WSL form are passed through unchanged.
+  * UNC paths (\\\\server\\share) become //server/share.
+  * Uses wslpath when available and falls back to a built-in converter.
+EOF
+}
+
+# q <path> — print a path double-quoted for bash, escaping expandable chars.
+q() {
+  printf '"%s"' "$(printf '%s' "$1" | sed 's/["\`$\\]/\\&/g')"
+}
+
+# strip_quotes <path> — remove one surrounding pair of single/double quotes.
+strip_quotes() {
+  local s="$1"
+  if [ "${s#\"}" != "$s" ]; then s="${s#\"}"; s="${s%\"}"; fi
+  if [ "${s#\'}" != "$s" ]; then s="${s#\'}"; s="${s%\'}"; fi
+  printf '%s' "$s"
+}
+
+# get_clipboard — read the Windows clipboard via PowerShell.
+get_clipboard() {
+  local cb=""
+  cb="$(powershell.exe -NoProfile -Command 'Get-Clipboard' 2>/dev/null | tr -d '\r')" || cb=""
+  printf '%s' "$cb" | sed 's/^[[:space:]]*//; s/[[:space:]]*$//'
+}
+
+# win_to_wsl <path> — Windows path -> WSL path.
+win_to_wsl() {
+  local s="${1//\\//}"
+  case "$s" in
+    //*) printf '%s' "$s" ;;  # UNC: \\server\share -> //server/share
+    *)
+      if command -v "$WSLPATH" >/dev/null 2>&1 && out="$("$WSLPATH" -u "$s" 2>/dev/null)"; then
+        printf '%s' "$out"; return 0
+      fi
+      local drive rest
+      case "$s" in
+        [A-Za-z]:*) drive="${s%%:*}"; rest="${s#*:}"
+                    printf '/mnt/%s%s' "$(printf '%s' "$drive" | tr '[:upper:]' '[:lower:]')" "$rest" ;;
+        *) printf '%s' "$s" ;;
+      esac
+      ;;
+  esac
+}
+
+# wsl_to_win <path> — WSL path -> Windows path.
+wsl_to_win() {
+  local s="$1"
+  case "$s" in
+    //*) printf '\\\\%s' "${s#//}" | tr '/' '\\' ;;  # //server/share -> \\server\share
+    *)
+      if command -v "$WSLPATH" >/dev/null 2>&1 && out="$("$WSLPATH" -w "$s" 2>/dev/null)"; then
+        printf '%s' "$out"; return 0
+      fi
+      case "$s" in
+        /mnt/[A-Za-z]/*)
+          local dr rest
+          s="${s#/mnt/}"; dr="${s%%/*}"; rest="${s#*/}"
+          printf '%s' "$(printf '%s' "$dr" | tr '[:lower:]' '[:upper:]'):\\${rest//\//\\}" ;;
+        *) printf '%s' "$s" ;;
+      esac
+      ;;
+  esac
+}
+
+main() {
+  local mode="cd" path="" out=""
+  case "${1:-}" in
+    --help|-h) usage; exit 0 ;;
+    --version) printf '%s %s\n' "$PROG" "$VERSION"; exit 0 ;;
+  esac
+  while getopts ":pwch" opt; do
+    case "$opt" in
+      p) mode="path" ;;
+      w) mode="windows" ;;
+      c) mode="copy" ;;
+      h) usage; exit 0 ;;
+      *) usage >&2; exit 2 ;;
+    esac
+  done
+  shift $((OPTIND - 1))
+
+  if [ "$#" -gt 0 ]; then
+    path="$(strip_quotes "$*")"
+  else
+    path="$(get_clipboard)"
+    if [ -z "$path" ]; then
+      printf '%s: clipboard is empty and no path given\n' "$PROG" >&2
+      printf 'usage: %s [-p|-w|-c] [PATH]\n' "$PROG" >&2
+      exit 1
+    fi
+  fi
+
+  case "$mode" in
+    windows) printf '%s\n' "$(wsl_to_win "$path")" ;;
+    path)    printf '%s\n' "$(win_to_wsl "$path")" ;;
+    cd)      printf 'cd %s\n' "$(q "$(win_to_wsl "$path")")" ;;
+    copy)
+      out="cd $(q "$(win_to_wsl "$path")")"
+      printf '%s\n' "$out"
+      printf '%s' "$out" | powershell.exe -NoProfile -Command '$input | Set-Clipboard' 2>/dev/null \
+        || printf '%s: warning: could not write to clipboard\n' "$PROG" >&2
+      ;;
+  esac
+}
+
+main "$@"

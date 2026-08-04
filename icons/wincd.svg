@@ -1,0 +1,47 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#0d1b2a"/>
+      <stop offset="1" stop-color="#1b3a5b"/>
+    </linearGradient>
+    <linearGradient id="arrow" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#f8fafc"/>
+      <stop offset="1" stop-color="#4ade80"/>
+    </linearGradient>
+    <linearGradient id="flag" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#60a5fa"/>
+      <stop offset="1" stop-color="#2563eb"/>
+    </linearGradient>
+  </defs>
+
+  <!-- rounded tile -->
+  <rect x="8" y="8" width="496" height="496" rx="112" fill="url(#bg)"/>
+  <rect x="8" y="8" width="496" height="496" rx="112" fill="none" stroke="#33506e" stroke-width="6"/>
+
+  <!-- Windows flag (4 panes) -->
+  <g fill="url(#flag)">
+    <rect x="126" y="188" width="56" height="56" rx="8"/>
+    <rect x="194" y="188" width="56" height="56" rx="8"/>
+    <rect x="126" y="258" width="56" height="56" rx="8"/>
+    <rect x="194" y="258" width="56" height="56" rx="8"/>
+  </g>
+
+  <!-- arrow: white -> green, pointing at Tux -->
+  <path d="M268 218 L330 256 L268 294" fill="none" stroke="url(#arrow)" stroke-width="34"
+        stroke-linecap="round" stroke-linejoin="round"/>
+
+  <!-- Tux (WSL side) -->
+  <g>
+    <ellipse cx="408" cy="258" rx="66" ry="96" fill="#1f2937"/>
+    <ellipse cx="408" cy="284" rx="42" ry="64" fill="#f8fafc"/>
+    <ellipse cx="350" cy="258" rx="17" ry="46" fill="#0b1220" transform="rotate(-18 350 258)"/>
+    <ellipse cx="466" cy="258" rx="17" ry="46" fill="#0b1220" transform="rotate(18 466 258)"/>
+    <circle cx="384" cy="222" r="12" fill="#f8fafc"/>
+    <circle cx="432" cy="222" r="12" fill="#f8fafc"/>
+    <circle cx="386" cy="224" r="5.5" fill="#0b1220"/>
+    <circle cx="430" cy="224" r="5.5" fill="#0b1220"/>
+    <path d="M390 242 Q408 232 426 248 Q408 264 390 252 Z" fill="#f97316"/>
+    <ellipse cx="382" cy="356" rx="16" ry="9" fill="#f97316"/>
+    <ellipse cx="434" cy="356" rx="16" ry="9" fill="#f97316"/>
+  </g>
+</svg>
