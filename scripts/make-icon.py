@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
-"""Render the wsl-cd icon at multiple sizes (PNG + multi-resolution ICO).
+"""Render the WinLuxCD icon at multiple sizes (PNG + multi-resolution ICO).
 
-Mirrors icons/wincd.svg using only Pillow, so the full dist does not depend
+Mirrors icons/winluxcd.svg using only Pillow, so the full dist does not depend
 on ImageMagick / rsvg / inkscape.  Run via scripts/make-icon.sh.
 """
 import sys
@@ -68,12 +68,12 @@ def render(size: int) -> Image.Image:
 def main() -> None:
     sizes = [512, 256, 128, 64, 32, 16]
     for s in sizes:
-        render(s).save(f"{OUT}/wincd-{s}.png")
+        render(s).save(f"{OUT}/winluxcd-{s}.png")
     # multi-resolution Windows .ico (taskbar / desktop)
-    render(256).save(f"{OUT}/wincd.ico", format="ICO",
+    render(256).save(f"{OUT}/winluxcd.ico", format="ICO",
                      sizes=[(16, 16), (32, 32), (48, 48), (64, 64),
                             (128, 128), (256, 256)])
-    print("wrote: " + ", ".join(f"wincd-{s}.png" for s in sizes) + ", wincd.ico")
+    print("wrote: " + ", ".join(f"winluxcd-{s}.png" for s in sizes) + ", winluxcd.ico")
 
 
 if __name__ == "__main__":

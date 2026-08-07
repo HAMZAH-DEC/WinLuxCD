@@ -1,2 +1,44 @@
+# Python caches and tooling
 __pycache__/
-*.pyc
+*.py[cod]
+*$py.class
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Local virtual environments
+.venv/
+venv/
+env/
+ENV/
+
+# PyInstaller and generated Windows builds
+/build/
+/dist/
+*.spec
+*.exe
+*.lnk
+
+# Logs and temporary files
+*.log
+*.tmp
+*.temp
+*.bak
+
+# Local WSL distribution migration artifacts
+move-distro.ps1
+move-distro.log
+ubuntu-export.tar
+
+# Operating-system files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Editor and IDE files
+.vscode/
+.idea/
+*.swp
+*.swo

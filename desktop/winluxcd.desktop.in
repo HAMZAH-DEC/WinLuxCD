@@ -1,12 +1,12 @@
 [Desktop Entry]
 Type=Application
 Version=1.0
-Name=wsl-cd
+Name=WinLuxCD
 GenericName=Windows to WSL path converter
 Comment=Convert a Windows path into a WSL cd command
 Keywords=wsl;windows;path;cd;mnt;powershell;convert;
 Exec=__EXEC__
-Icon=wincd
+Icon=winluxcd
 Terminal=true
 Categories=Utility;Development;System;
 StartupNotify=false

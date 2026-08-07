@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
-# wsl-cd test suite — run with:  bash tests/run-tests.sh
+# WinLuxCD test suite — run with:  bash tests/run-tests.sh
 set -uo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-WINC="$ROOT/bin/wincd"
+WINC="$ROOT/bin/winluxcd"
 
 pass=0
 fail=0
@@ -55,7 +55,7 @@ t "path with spaces"      'cd "/mnt/c/Users/foo/My Docs"'  "$WINC" 'C:\Users\foo
 t "lowercase drive"       'cd "/mnt/c/users/foo"'           "$WINC" 'c:\users\foo'
 t "double-quoted input"   'cd "/mnt/c/Users/foo"'           "$WINC" '"C:\Users\foo"'
 t "single-quoted input"   'cd "/mnt/c/Users/foo"'           "$WINC" "'C:\Users\foo'"
-t "wsl path passthrough"  'cd "/home/hamzah_dec"'           "$WINC" '/home/hamzah_dec'
+t "wsl path passthrough"  'cd "/home/user"'                 "$WINC" '/home/user'
 t "-p raw path"           '/mnt/d/work'                     "$WINC" -p 'D:\work'
 t "UNC path"              'cd "//server/share/dir"'         "$WINC" '\\server\share\dir'
 
@@ -92,10 +92,12 @@ chmod +x "$MOCK/powershell.exe"
 t "clipboard mode" 'cd "/mnt/c/Users/clip/My Folder"' env PATH="$MOCK:$PATH" MOCK_CLIP='C:\Users\clip\My Folder' "$WINC"
 t "copy mode -c"   'cd "/mnt/c/Users/foo"'            env PATH="$MOCK:$PATH" "$WINC" -c 'C:\Users\foo'
 MOCK_CLIP='' t_err "empty clipboard errors" env PATH="$MOCK:$PATH" "$WINC"
+t_err "garbage arg rejected"      "$WINC" 'verify_roads.py >/dev/null; do sleep 10; done'
+t_err "garbage clipboard rejected" env PATH="$MOCK:$PATH" MOCK_CLIP='verify_roads.py >/dev/null; do sleep 10; done' "$WINC"
 
 echo "== meta =="
 t_contains "--help shows usage" "USAGE"        "$WINC" --help
-t_contains "--version"          "1.0.0"        "$WINC" --version
+t_contains "--version"          "1.1.0"        "$WINC" --version
 
 echo
 echo "== results: $pass passed, $fail failed =="

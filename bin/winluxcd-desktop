@@ -1,14 +1,14 @@
 #!/usr/bin/env bash
-# Interactive launcher used by the wincd.desktop entry (runs inside a terminal).
+# Interactive launcher used by the winluxcd.desktop entry (runs inside a terminal).
 # Opens in WSLg/desktop environments; safe to ignore if you never launch it.
 set -u
 
 BIN_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-printf 'wsl-cd — Windows path -> WSL cd\n'
+printf 'WinLuxCD — Windows path -> WSL cd\n'
 printf '----------------------------------\n'
 printf 'Windows path (Enter for clipboard): '
 read -r p
-"$BIN_DIR/wincd" "$p"
+"$BIN_DIR/winluxcd" "$p"
 printf '\n'
 read -rp 'Press Enter to close...'

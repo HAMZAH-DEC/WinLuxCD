@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
-# wincd — convert Windows (PowerShell) directory addresses to WSL `cd` commands.
-# Part of the wsl-cd project (see README.md at the project root).
+# winluxcd — convert Windows (PowerShell) directory addresses to WSL `cd` commands.
+# Part of the WinLuxCD project (see README.md at the project root).
 set -euo pipefail
 
-VERSION="1.0.0"
+VERSION="1.1.0"
 PROG="$(basename "$0")"
 # Allow overriding the wslpath binary (mainly for testing the fallback).
 WSLPATH="${WSLPATH:-wslpath}"
@@ -61,17 +61,14 @@ win_to_wsl() {
   local s="${1//\\//}"
   case "$s" in
     //*) printf '%s' "$s" ;;  # UNC: \\server\share -> //server/share
-    *)
+    [A-Za-z]:*)
       if command -v "$WSLPATH" >/dev/null 2>&1 && out="$("$WSLPATH" -u "$s" 2>/dev/null)"; then
         printf '%s' "$out"; return 0
       fi
       local drive rest
-      case "$s" in
-        [A-Za-z]:*) drive="${s%%:*}"; rest="${s#*:}"
-                    printf '/mnt/%s%s' "$(printf '%s' "$drive" | tr '[:upper:]' '[:lower:]')" "$rest" ;;
-        *) printf '%s' "$s" ;;
-      esac
-      ;;
+      drive="${s%%:*}"; rest="${s#*:}"
+      printf '/mnt/%s%s' "$(printf '%s' "$drive" | tr '[:upper:]' '[:lower:]')" "$rest" ;;
+    *) printf '%s' "$s" ;;
   esac
 }
 
@@ -121,6 +118,14 @@ main() {
       printf 'usage: %s [-p|-w|-c] [PATH]\n' "$PROG" >&2
       exit 1
     fi
+  fi
+
+  # Guard: only convert things that look like paths. Random clipboard content
+  # (e.g. a copied shell command) must not reach wslpath.
+  if ! printf '%s' "$path" | grep -Eq '^([A-Za-z]:[\\/]|[\\/]{2}|/)'; then
+    printf '%s: input does not look like a path: %.60s\n' "$PROG" "$path" >&2
+    printf 'copy a Windows path (C:\\...), UNC path (\\\\server\\share) or WSL path (/home/...) first\n' >&2
+    exit 1
   fi
 
   case "$mode" in
