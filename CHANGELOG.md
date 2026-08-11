@@ -50,15 +50,25 @@ All notable WinLuxCD changes are documented here.
   window; the size and position are saved on close and restored on the next
   launch (`%LOCALAPPDATA%\WinLuxCD\settings.json`).
 - Per-monitor DPI awareness so the app stays crisp on scaled displays.
+- Hovering an entry in the Recent drop-down shows the full address in a
+  dark tooltip next to the pointer.
 
 ### Changed
 
 - Recent history is a drop-down box instead of wrapping link chips.
+- Long Recent entries now elide their leading components with `…` so the
+  back end of the address (folder chain, file name) stays visible in the
+  drop-down; the full address is shown on hover or once selected.
 
 ### Fixed
 
 - The window no longer opens cut off at the bottom with controls hidden.
 - The blue title bar spans the full window width, so no dark gap shows beside
   the close button.
+- Minimising via the custom title bar button now puts the app on the
+  taskbar.  The window is given a real taskbar entry (WS_EX_APPWINDOW), so it
+  no longer collapses into a floating title-bar strip on the desktop; the
+  custom blue title bar and the window size/position return intact when
+  restored.
 
 Reserved for changes after the 1.1.0 release.

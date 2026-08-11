@@ -4,6 +4,7 @@ import json
 import os
 import sys
 import tkinter as tk
+import tkinter.messagebox as messagebox
 import tkinter.ttk as ttk
 from pathlib import Path
 
@@ -27,11 +28,44 @@ CLOSE_HOVER = "#c42b1c"
 
 MAX_HISTORY = 12
 MIN_WINDOW_WIDTH = 1000
+HISTORY_DISPLAY_MAX = 56
 
 
 def resource_path(relative_path: str) -> Path:
     bundle_root = Path(getattr(sys, "_MEIPASS", BASE))
     return bundle_root / relative_path
+
+
+def shorten_path(path: str, max_chars: int = HISTORY_DISPLAY_MAX) -> str:
+    """Shorten a path for a narrow list while keeping its back end visible.
+
+    Short paths are returned unchanged.  Long paths have their leading
+    components elided with a horizontal ellipsis so the tail of the address
+    (folder chain, file name, extension) stays readable, for example::
+
+        C:\\Users\\you\\repo\\backend\\app\\settings.py
+        -> …\\repo\\backend\\app\\settings.py
+    """
+    if len(path) <= max_chars:
+        return path
+    separator = "\\" if "\\" in path else "/"
+    parts = path.replace(separator, "/").split("/")
+    tail_parts = []
+    used = 1  # room for the leading ellipsis
+    for part in reversed(parts):
+        need = len(part) + (1 if tail_parts else 0)
+        if tail_parts and used + need > max_chars:
+            break
+        tail_parts.insert(0, part)
+        used += need
+    tail = separator.join(tail_parts)
+    if len(tail) > max_chars:
+        # One component alone exceeds the limit: cut from the front so the
+        # file name / extension stays visible.
+        return "…" + tail[-(max_chars - 1):]
+    if len(parts) > len(tail_parts):
+        return "…" + separator + tail
+    return tail
 
 
 def history_path() -> Path:
@@ -100,6 +134,56 @@ def enable_dpi_awareness() -> None:
         pass
 
 
+class HoverTooltip:
+    """A small always-on-top label that shows text near the pointer."""
+
+    def __init__(self, master: tk.Misc) -> None:
+        self._master = master
+        self._window = None
+        self._label = None
+
+    def show(self, text: str, x_root: int, y_root: int) -> None:
+        if not text:
+            self.hide()
+            return
+        if self._window is None:
+            self._window = tk.Toplevel(self._master)
+            self._window.overrideredirect(True)
+            self._window.attributes("-topmost", True)
+            self._label = tk.Label(
+                self._window,
+                text="",
+                bg=SURFACE_ALT,
+                fg=TEXT,
+                relief="solid",
+                borderwidth=1,
+                highlightthickness=0,
+                padx=8,
+                pady=4,
+                font=("Consolas", 9),
+            )
+            self._label.pack()
+        self._label.configure(text=text)
+        self._window.update_idletasks()
+        width = self._window.winfo_reqwidth()
+        height = self._window.winfo_reqheight()
+        screen_w = self._window.winfo_screenwidth()
+        screen_h = self._window.winfo_screenheight()
+        x = x_root + 14
+        y = y_root + 16
+        if x + width > screen_w - 8:
+            x = x_root - width - 14
+        if y + height > screen_h - 8:
+            y = y_root - height - 16
+        self._window.geometry("+{}+{}".format(max(0, x), max(0, y)))
+        self._window.deiconify()
+        self._window.lift()
+
+    def hide(self) -> None:
+        if self._window is not None:
+            self._window.withdraw()
+
+
 class WinLuxCDApp(tk.Tk):
     def __init__(self) -> None:
         super().__init__()
@@ -117,6 +201,10 @@ class WinLuxCDApp(tk.Tk):
         self._min_width = 400
         self._min_height = 300
         self._closing = False
+        self._pre_minimize_geometry = None
+        self._history_display = []
+        self._popdown_open = False
+        self.hover_tooltip = HoverTooltip(self)
 
         self._set_icon()
         self.overrideredirect(True)  # custom blue title bar with min/close buttons
@@ -316,13 +404,58 @@ class WinLuxCDApp(tk.Tk):
         save_settings(self._current_settings())
 
     def minimize(self) -> None:
-        # An overrideredirect window cannot be iconified cleanly on Windows, so
-        # temporarily restore the native chrome; the <Map> handler puts the
-        # custom blue title bar back when the taskbar button restores the app.
+        # On Windows the window keeps its custom chrome and minimises straight
+        # into the taskbar via ShowWindow; _ensure_taskbar_button gives it a
+        # real taskbar entry, so no native-chrome detour is needed.  The
+        # overrideredirect/iconify dance below is only a fallback for
+        # platforms without ShowWindow.
+        if sys.platform == "win32":
+            try:
+                import ctypes
+
+                hwnd = ctypes.windll.user32.GetParent(self.winfo_id())
+                if hwnd:
+                    ctypes.windll.user32.ShowWindow(hwnd, 6)  # SW_MINIMIZE
+                    return
+            except Exception:
+                pass
+        if not self.overrideredirect():
+            self.iconify()
+            return
+        self._pre_minimize_geometry = self.geometry()
         self.overrideredirect(False)
-        self.iconify()
+        self.after(10, self.iconify)
+
+    def _ensure_taskbar_button(self) -> None:
+        """Force a real taskbar button for the custom-chrome window.
+
+        Tk marks overrideredirect windows as tool windows
+        (WS_EX_TOOLWINDOW), so without this they have no taskbar entry and
+        Windows minimises them to a floating title-bar strip on the desktop
+        instead of the taskbar.  WS_EX_APPWINDOW overrides that.  The wrapper
+        window is created when the window is first mapped, so this runs from
+        the <Map> handler.
+        """
+        if sys.platform != "win32":
+            return
+        try:
+            import ctypes
+
+            user32 = ctypes.windll.user32
+            hwnd = user32.GetParent(self.winfo_id())
+            if not hwnd:
+                return
+            get_style = getattr(user32, "GetWindowLongPtrW", user32.GetWindowLongW)
+            set_style = getattr(user32, "SetWindowLongPtrW", user32.SetWindowLongW)
+            ex_style = get_style(hwnd, -20)  # GWL_EXSTYLE
+            set_style(hwnd, -20, ex_style | 0x00040000)  # WS_EX_APPWINDOW
+        except Exception:
+            pass
 
     def _on_map(self, _event) -> None:
+        # The wrapper window (and its styles) is created when the window is
+        # first mapped; re-apply the forced taskbar button there.
+        self._ensure_taskbar_button()
         # Only scheduled while the window is mapped with native chrome after
         # the minimise dance, so normal startup never registers a timer.
         if not self.overrideredirect():
@@ -332,6 +465,11 @@ class WinLuxCDApp(tk.Tk):
         try:
             if not self.overrideredirect():
                 self.overrideredirect(True)
+                # The native-chrome detour can shrink or misplace the window
+                # on some Windows versions; restore the saved size/position.
+                if self._pre_minimize_geometry:
+                    self.geometry(self._pre_minimize_geometry)
+                    self._pre_minimize_geometry = None
         except tk.TclError:
             pass
 
@@ -455,15 +593,103 @@ class WinLuxCDApp(tk.Tk):
         )
         self.recent_combo.grid(row=0, column=0, sticky="ew", ipady=6)
         self.recent_combo.bind("<<ComboboxSelected>>", self._on_recent_selected)
+        self._bind_popdown_tooltip()
         self._refresh_recent()
 
+    def _bind_popdown_tooltip(self) -> None:
+        # Show the full address for the hovered Recent entry.  The dropdown
+        # popdown opens and closes with <Map>/<Unmap> (Tk's own bindings on
+        # the ComboboxPopdown class), and while it is open a light poll
+        # follows the pointer and shows the tooltip for the item underneath.
+        # Polling is used instead of <Motion> bindings because real mouse
+        # movement does not reliably reach the dropdown listbox on Windows
+        # (the popdown grabs the pointer and Tk's win32 routing skips some
+        # motion events); polling works identically on every platform.
+        self._popdown_hook = "__winluxcd_popdown_hook"
+        self.tk.createcommand(self._popdown_hook, self._on_popdown_event)
+        self.tk.call(
+            "bind", "ComboboxPopdown", "<Map>",
+            "+{} %W map".format(self._popdown_hook),
+        )
+        self.tk.call(
+            "bind", "ComboboxPopdown", "<Unmap>",
+            "+{} %W unmap".format(self._popdown_hook),
+        )
+
+    def _on_popdown_event(self, widget, state, *extra) -> None:
+        if state == "map":
+            self._popdown_open = True
+            self._poll_popdown_tooltip()
+        elif state == "unmap":
+            self._popdown_open = False
+            self.hover_tooltip.hide()
+
+    def _poll_popdown_tooltip(self) -> None:
+        if not self._popdown_open:
+            return
+        try:
+            popdown = self.recent_combo._w + ".popdown"
+            listbox = popdown + ".f.l"
+            if not self.tk.call("winfo", "exists", popdown) or not self.tk.call(
+                "winfo", "viewable", listbox
+            ):
+                return
+            px = int(self.tk.call("winfo", "pointerx", listbox))
+            py = int(self.tk.call("winfo", "pointery", listbox))
+            lx = px - int(self.tk.call("winfo", "rootx", listbox))
+            ly = py - int(self.tk.call("winfo", "rooty", listbox))
+            width = int(self.tk.call("winfo", "width", listbox))
+            if lx < 0 or ly < 0 or lx >= width:
+                self.hover_tooltip.hide()
+                return
+            index = int(self.tk.call(listbox, "index", "@%d,%d" % (lx, ly)))
+            size = int(self.tk.call(listbox, "size"))
+            bounding_box = self.tk.call(listbox, "bbox", index)
+            if not 0 <= index < size or not bounding_box:
+                self.hover_tooltip.hide()
+                return
+            if not (bounding_box[1] <= ly < bounding_box[1] + bounding_box[3]):
+                self.hover_tooltip.hide()
+                return
+            self.hover_tooltip.show(self.history[index], px, py)
+        except tk.TclError:
+            pass
+        finally:
+            if self._popdown_open:
+                self.after(100, self._poll_popdown_tooltip)
+
     def _on_recent_selected(self, _event) -> None:
+        full_path = self._selected_history_path()
+        if full_path:
+            # The dropdown shows the shortened address; put the real one back
+            # in the closed field once a choice has been made.
+            self.recent_combo.set(full_path)
+            self.use_history(full_path)
+
+    def _selected_history_path(self) -> str:
         value = self.recent_combo.get()
-        if value:
-            self.use_history(value)
+        index = self._popdown_curselection()
+        if index is not None and 0 <= index < len(self.history):
+            return self.history[index]
+        try:
+            return self.history[self._history_display.index(value)]
+        except ValueError:
+            return value
+
+    def _popdown_curselection(self):
+        # The popdown listbox is created by Tcl (not through tkinter), so it
+        # is reached through raw widget commands rather than nametowidget.
+        try:
+            selection = self.tk.call(
+                self.recent_combo._w + ".popdown.f.l", "curselection"
+            )
+        except tk.TclError:
+            return None
+        return int(selection[0]) if selection else None
 
     def _refresh_recent(self) -> None:
-        self.recent_combo["values"] = self.history
+        self._history_display = [shorten_path(entry) for entry in self.history]
+        self.recent_combo["values"] = self._history_display
         if not self.history:
             self.recent_combo.set("")
 
@@ -483,6 +709,14 @@ class WinLuxCDApp(tk.Tk):
         self._refresh_recent()
 
     def clear_history(self) -> None:
+        if not self.history:
+            return
+        if not messagebox.askyesno(
+            "Clear recent history",
+            "Remove all recent entries?",
+            parent=self,
+        ):
+            return
         self.history = []
         save_history(self.history)
         self._refresh_recent()
@@ -544,6 +778,9 @@ class WinLuxCDApp(tk.Tk):
 
     def clear_input(self) -> None:
         self.input_var.set("")
+        self.wsl_var.set("")
+        self.cd_var.set("")
+        self.set_status("Enter a path, then convert it to a WSL path.")
         self.input_entry.focus_set()
 
     def paste(self) -> None:

@@ -1,5 +1,6 @@
 import unittest
 
+from winluxcd_app import shorten_path
 from winluxcd_core import PathConversionError, convert_to_wsl
 
 
@@ -29,6 +30,54 @@ class PathConversionTests(unittest.TestCase):
     def test_invalid_url_is_rejected(self):
         with self.assertRaisesRegex(PathConversionError, "auth.openai.com"):
             convert_to_wsl("https://auth.openai.com/oauth/authorize", lambda _: "unused")
+
+
+class ShortenPathTests(unittest.TestCase):
+    def test_short_path_is_unchanged(self):
+        self.assertEqual(r"C:\Users\you\repo", shorten_path(r"C:\Users\you\repo"))
+
+    def test_long_windows_path_keeps_tail(self):
+        path = r"C:\Users\you\really\long\folder\chain\backend\app\settings.py"
+        result = shorten_path(path, max_chars=40)
+        self.assertTrue(result.startswith("…"))
+        self.assertTrue(result.endswith(r"\backend\app\settings.py"))
+        self.assertLessEqual(len(result), 40)
+        self.assertNotIn("C:\\Users", result)
+
+    def test_filename_always_visible(self):
+        result = shorten_path(
+            r"C:\Users\you\repo\backend\app\main.py", max_chars=24
+        )
+        self.assertTrue(result.endswith(r"\main.py"))
+        self.assertLessEqual(len(result), 24)
+
+    def test_single_component_longer_than_limit(self):
+        result = shorten_path(
+            r"C:\some\folder\a_very_long_filename_that_keeps_going.py",
+            max_chars=16,
+        )
+        self.assertTrue(result.startswith("…"))
+        self.assertTrue(result.endswith(".py"))
+        self.assertLessEqual(len(result), 16)
+
+    def test_wsl_path(self):
+        result = shorten_path(
+            "/home/user/projects/backend/app/settings.py", max_chars=30
+        )
+        self.assertTrue(result.startswith("…"))
+        self.assertTrue(result.endswith("/app/settings.py"))
+        self.assertIn("/", result)
+        self.assertNotIn("\\", result)
+
+    def test_never_exceeds_limit(self):
+        for path in (
+            r"C:\Users\you\repo\backend\app\settings.py",
+            r"\\server\share\long\folder\chain\file.txt",
+            "/home/user/projects/backend/app/settings.py",
+            "short.py",
+        ):
+            with self.subTest(path=path):
+                self.assertLessEqual(len(shorten_path(path, max_chars=25)), 25)
 
 
 if __name__ == "__main__":
