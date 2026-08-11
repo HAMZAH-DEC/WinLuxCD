@@ -46,9 +46,19 @@ The installed desktop EXE is one-file and does not need Python at runtime.
 The repository includes a small Windows app with an editable path field. It has
 Paste and Convert buttons, displays both the raw WSL path and a copy-ready
 `cd "/mnt/..."` command, and provides a separate Copy button for each result.
-The Paste button immediately converts the clipboard contents, so a second
-click is not required. Invalid clipboard contents such as a web URL are shown
-as an error instead of being sent to WSL.
+Pasting a path into the field (Ctrl+V, Shift+Insert, or the Paste button)
+converts it immediately, so a second click is not required. Invalid clipboard
+contents such as a web URL are shown as an error instead of being sent to WSL.
+
+Recent conversions appear in a drop-down list below the converter; selecting
+one repopulates the path field and reconverts it. The history is saved to
+`%LOCALAPPDATA%\WinLuxCD\history.json` and survives restarts, and a Clear
+button empties it. A Clear button under Paste empties the path field. The app
+uses a custom blue title bar with minimise and close buttons (drag the bar to
+move the window), and it opens 1000 px wide by default so paths stay readable;
+its minimum size keeps every control visible. Grab the grip in the
+bottom-right corner to resize the window; the size and position are remembered
+and restored the next time the app opens.
 
 Build the one-file Windows executable from Windows PowerShell:
 

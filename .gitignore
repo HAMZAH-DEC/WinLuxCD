@@ -27,6 +27,9 @@ ENV/
 *.temp
 *.bak
 
+# Agent session data
+.pi/
+
 # Local WSL distribution migration artifacts
 move-distro.ps1
 move-distro.log

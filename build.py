@@ -1,4 +1,4 @@
-r"""Build WinLuxCD.exe and create a real Windows desktop shortcut.
+"""Build WinLuxCD.exe and create a real Windows desktop shortcut.
 
 Run from Windows PowerShell in this folder:
     python build.py
@@ -6,6 +6,7 @@ Run from Windows PowerShell in this folder:
 The output is a PyInstaller one-file, windowed executable at dist\WinLuxCD.exe.
 """
 
+import importlib.util
 import os
 import subprocess
 import sys
@@ -26,9 +27,7 @@ def run(command, **kwargs):
 
 
 def ensure_dependencies():
-    try:
-        import PyInstaller  # noqa: F401
-    except ImportError:
+    if importlib.util.find_spec("PyInstaller") is None:
         run([sys.executable, "-m", "pip", "install", "pyinstaller"])
 
 
